@@ -1,0 +1,288 @@
+<?xml version="1.0" ?>
+<!-- Configuration of the Ant build system to generate a Jar file --> 
+<project basedir=".." name="ant-deploy-amm" default="copyJar">	
+	<taskdef resource="net/sf/antcontrib/antlib.xml">
+	  <classpath>
+	    <pathelement location="./WebContent/WEB-INF/lib/ant-contrib.jar"/>
+	  </classpath>
+	</taskdef>
+	
+	<scriptdef name="substring" language="javascript">
+    	<attribute name="text" />
+	    <attribute name="start" />
+	    <attribute name="end" />
+	    <attribute name="property" />
+	    <![CDATA[
+       		var text = attributes.get("text");
+       		var start = attributes.get("start");
+       		var end = attributes.get("end") || text.length();
+       		project.setProperty(attributes.get("property"), text.substring(start, end));
+     	]]>
+  	</scriptdef>
+	
+	<scriptdef name="getVersion" language="javascript">
+		<attribute name="text" />
+	    <attribute name="property" />
+	    <![CDATA[
+	    	var text = attributes.get("text");
+	       	var start = text.lastIndexOf("-");
+	       	var end = text.length();
+	       	project.setProperty(attributes.get("property"), text.substring(start+1, end));
+	    ]]>
+	</scriptdef>
+	 
+	<scriptdef name="getNewVersion" language="javascript">
+		<attribute name="text" />
+	    <attribute name="property" />
+	    <![CDATA[
+	    	var text = attributes.get("text");
+	       	var start = text.lastIndexOf(".");
+	       	var end = text.length();
+		   	var new_version = parseInt(text.substring(start+1, end)) + 1;
+	       	project.setProperty(attributes.get("property"), text.substring(0, start+1) + new_version);
+	    ]]>
+	</scriptdef>
+		
+	<scriptdef name="toLowerCase" language="javascript">
+	    <attribute name="text" /> 
+	    <attribute name="property" />
+	   	<![CDATA[
+	    	project.setProperty(attributes.get("property"),attributes.get("text").toLowerCase());
+	    ]]>
+	</scriptdef>
+	
+	<property name="src" location="src"/>
+	<property name="build" location="WebContent/WEB-INF/classes"/>
+	<property name="export_path" value=".ant"/>
+	<property name="cur_version" value="1.0.-1"/>	
+	<property name="moduleList" value="arc,apf,apw,apt,aps,aph,apc,apg,apu,apr"/>	
+	<property name="localWASInstallPath" location="C:\Program Files (x86)\IBM\WebSphere\AppServer"/>
+	<property name="jre_path" location="${localWASInstallPath}\java\jre"/>
+
+	
+	<mkdir dir=".ant"/>
+	
+	<path id="master-classpath">
+  		<fileset dir="WebContent/WEB-INF/lib">
+  			<include name="*.jar"/>
+		</fileset>
+		
+		<fileset dir="${localWASInstallPath}\plugins">
+  			<include name="*.jar"/>
+		</fileset>
+		
+		<fileset dir="${localWASInstallPath}\plugins\com.ibm.ws.wsadie">
+  			<include name="*.jar"/>
+		</fileset>
+		
+		<fileset dir="${localWASInstallPath}\dev\JavaEE\6.0">
+  			<include name="*.jar"/>
+		</fileset>
+		
+		<fileset dir="${localWASInstallPath}\lib">
+  			<include name="*.jar"/>
+		</fileset>
+		
+		<fileset dir="${localWASInstallPath}\optionalLibraries\web2mobile">
+  			<include name="*.jar"/>
+		</fileset>
+		
+		<fileset dir="${localWASInstallPath}\optionalLibraries\web2mobile\rpcadapter">
+  			<include name="*.jar"/>
+		</fileset>
+				
+		<fileset dir="${localWASInstallPath}\dev\sca\1.0">
+  			<include name="*.jar"/>
+		</fileset>
+		
+		<fileset dir="${localWASInstallPath}\dev\sca\2.0">
+  			<include name="*.jar"/>
+		</fileset>
+		
+		<fileset dir="${localWASInstallPath}\dev\xml">
+  			<include name="*.jar"/>
+		</fileset>
+				
+		<fileset dir="${jre_path}\lib">
+  			<include name="*.jar"/>
+		</fileset>
+		
+		<fileset dir="${jre_path}\lib\ext">
+  			<include name="*.jar"/>
+		</fileset>
+		  
+		<pathelement path="${build.dir}"/>
+  	</path>
+	
+	<target name="compile">
+		<mkdir dir="./WebContent/WEB-INF/classes"/>	
+		<javac srcdir="${src}" destdir="${build}" source="1.6" target="1.6" nowarn="on" debug="true" failonerror="true" includeantruntime="false">
+			<exclude name="**/Dao/*.java" />
+			<exclude name="**/Service/*.java" />
+			<exclude name="**/Controller/*.java" />
+			<exclude name="**/Job/*.java" />
+			<classpath refid="master-classpath"/>
+			<compilerarg line="-Xlint:none -Xlint:-unchecked -Xlint:-deprecation"/>
+		</javac>
+	</target>
+	
+	<target name="getProjName" depends="compile">
+		<dirname property="antfile.dir" file="${ant.file}"/>
+		<dirname property="antfile.dir.parent" file="${antfile.dir}"/>
+		<basename property="temp_def_proj_name" file="${antfile.dir.parent}"/>
+		<toLowerCase property="proj_name" text="${temp_def_proj_name}"/>
+		<substring text="${proj_name}" start="4" property="s_proj_name" />
+	</target> 
+		
+	<target name="getVersion" depends="getProjName">
+		<loadresource property="version">
+			<file file="WebContent/META-INF/MANIFEST.MF"/>
+		</loadresource>
+		<propertyregex property="version"
+		    override="true"
+		    input="${version}"
+		    regexp="Implementation-Version: ([0-9\.]+)"
+		    select="\1" />
+	</target>	 
+	
+	<target name="generateWebFragXml" depends="getVersion">
+		<copy file="./WebContent/WEB-INF/web.xml" tofile=".ant/META-INF/web-fragment.xml"/>
+		
+		<property name="web-app-root-tag" value='&lt;web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd" id="WebApp_${s_proj_name}" version="3.0"&gt;'/>
+		<property name="web-fragment-root-tag" value='&lt;web-fragment id="WebApp_web" version="3.0" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-fragment_3_0.xsd"&gt;'/>
+		<property name="web-app-end-tag" value="&lt;/web-app&gt;"/>
+		<property name="web-fragment-end-tag" value="&lt;/web-fragment&gt;"/>
+		<property name="regex-welcome-file-list" value="&lt;welcome-file-list&gt;.*&lt;\/welcome-file-list&gt;"/>
+		<property name="regex-jsp-config" value="&lt;jsp-config&gt;.*&lt;\/jsp-config&gt;"/>
+		<property name="regex-module-name" value="&lt;module-name&gt;.*&lt;\/module-name&gt;"/>
+				
+		<replace file=".ant/META-INF/web-fragment.xml" token="${web-app-root-tag}" value="${web-fragment-root-tag}"/>
+		<replace file=".ant/META-INF/web-fragment.xml" token="${web-app-end-tag}" value="${web-fragment-end-tag}"/>
+				
+		<replaceregexp match="${regex-welcome-file-list}" replace=" " flags="s">
+		    <fileset dir=".ant/META-INF" includes="web-fragment.xml"/>
+		</replaceregexp>
+		
+		<replaceregexp match="${regex-jsp-config}" replace=" " flags="s">
+		    <fileset dir=".ant/META-INF" includes="web-fragment.xml"/>
+		</replaceregexp>
+		
+		<replaceregexp match="${regex-module-name}" replace=" " flags="s">
+		    <fileset dir=".ant/META-INF" includes="web-fragment.xml"/>
+		</replaceregexp>
+	</target>
+	
+	<target name="copyJavaFiles" depends="generateWebFragXml">
+		<copy todir=".ant">
+		    <fileset dir="./WebContent/WEB-INF/classes">
+		    	<exclude name="**/config.properties" />
+		    </fileset>
+		</copy>	
+	</target>
+	
+	<target name="copySettingFiles" depends="copyJavaFiles">
+		<copy todir=".ant/META-INF">
+		    <fileset dir="./WebContent/META-INF">
+		    	<exclude name="**/.jazzignore" />
+		    </fileset>
+		</copy>
+	</target>
+	
+	<target name="copyWebFiles" depends="copySettingFiles">		
+		<copy todir=".ant/META-INF/resources">
+		    <fileset dir="./WebContent"> 
+		    	<exclude name="**/classes/**" />
+		    	<exclude name="**/lib/**" />
+		    	<exclude name="**/META-INF/**" />
+		    	<exclude name="**/web.xml" /> 
+		    	<exclude name="**/.jazzignore" />
+		    </fileset>
+		</copy>	 
+	</target>
+
+	<target name="removeExistsJar" depends="copyWebFiles">
+		<delete>
+			<fileset dir="${export_path}" includes="**/${proj_name}*.jar"/>
+		</delete>
+	</target>
+	
+	<target name="createJar" depends="removeExistsJar">	
+		<jar jarfile="${export_path}\${proj_name}-${version}.jar" basedir=".ant"/>
+  	</target>
+	
+	<target name="removeTargetJar" depends="createJar">
+		<if>
+			<available file="./WebContent" type="dir" />
+			<then>
+				<for list="${moduleList}" param="module">
+					<sequential>
+						<if>
+							<available file="../arc-@{module}/WebContent/WEB-INF/lib" type="dir" />
+						  	<then>
+						  		<if>
+						  			<not>
+						  		    	<equals arg1="@{module}" arg2="${s_proj_name}"/>
+						  			</not>
+						  			<then>				  		
+								  		<delete>
+						  					<fileset dir="../arc-@{module}/WebContent/WEB-INF/lib" includes="**/${proj_name}*.jar"/>
+						  				</delete> 	
+						  			</then>
+						  		</if>
+						  	</then>
+						</if> 
+					</sequential> 
+				</for>	
+				
+				<if>
+					<available file="../arc/WebContent/WEB-INF/lib" type="dir" />
+					<then>			  		
+				  		<delete>
+		  					<fileset dir="../arc/WebContent/WEB-INF/lib" includes="**/${proj_name}*.jar"/>
+		  				</delete> 			  		
+				  	</then>
+				</if> 
+			</then>
+		</if>
+	</target>
+	
+	<target name="copyJar" depends="removeTargetJar"> 
+		<if>
+			<available file="./WebContent" type="dir" />
+			<then>
+				<for list="${moduleList}" param="module">
+					<sequential>
+						<if>
+							<available file="../arc-@{module}/WebContent/WEB-INF/lib" type="dir" />
+						  	<then>
+						  		<if>
+						  			<not>
+						  		    	<equals arg1="arc-@{module}" arg2="${proj_name}"/>
+						  			</not>
+						  			<then>											  		
+								  		<copy todir="../arc-@{module}/WebContent/WEB-INF/lib">
+						  			    	<fileset dir="${export_path}">
+						  			    		<include name="**/${proj_name}*.jar"/>
+						  			    	</fileset>
+						  			  	</copy>	
+						  			</then>
+						  		</if>
+						  	</then>
+						</if> 
+					</sequential> 
+				</for>	
+				
+				<if>
+					<available file="../arc/WebContent/WEB-INF/lib" type="dir" />
+					<then>							  		
+				  		<copy todir="../arc/WebContent/WEB-INF/lib">
+		  			    	<fileset dir="${export_path}">
+		  			    		<include name="**/${proj_name}*.jar"/>
+		  			    	</fileset>
+		  			  	</copy>					  		
+				  	</then>
+				</if> 
+			</then>
+		</if>
+	</target>
+</project>

@@ -1,0 +1,35 @@
+<?xml version="1.0" ?>
+<!-- Configuration of the Ant build system to generate a Jar file --> 
+<project name="ant-clean-abs" basedir=".." default="clean">
+	<taskdef resource="net/sf/antcontrib/antlib.xml">
+	  <classpath>
+	    <pathelement location="./WebContent/WEB-INF/lib/ant-contrib.jar"/>
+	  </classpath>
+	</taskdef>
+	
+	<script language="javascript">
+        var logger = project.getBuildListeners( ).firstElement( );
+        logger.setMessageOutputLevel( 0 );
+    </script> 
+	
+	<target name="removeJar">
+		<if>
+			<available file="./WebContent" type="dir" />
+			<then>				
+				<if>
+					<available file="./WebContent/WEB-INF/lib" type="dir" />
+					<then>			  		
+				  		<delete>
+		  					<fileset dir="./WebContent/WEB-INF/lib" includes="**/arc-*.jar"/>
+				  			<fileset dir="./WebContent/WEB-INF/lib" includes="**/acf-acf-*.jar"/>
+		  				</delete> 			  		
+				  	</then>
+				</if> 
+			</then>
+		</if>
+	</target>
+	
+	<target name="clean" depends="removeJar">
+		<delete dir=".ant"/>
+	</target>
+</project> 
